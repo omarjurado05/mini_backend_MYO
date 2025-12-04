@@ -110,6 +110,8 @@ exports.createArticle = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// metodo actualizar
+
 exports.updateArticle = functions.https.onRequest(async (req, res) => {
   try {
     // Permitir solo PUT
@@ -171,4 +173,49 @@ exports.updateArticle = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+// metodo borrar
+exports.deleteArticle = functions.https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== "DELETE") {
+      return res.status(405).json({
+        message: "Método no permitido",
+        statusCode: 405,
+      });
+    }
 
+    const {id} = req.query;
+
+    if (!id) {
+      return res.status(400).json({
+        message: "Falta el ID del artículo",
+        statusCode: 400,
+      });
+    }
+
+    const ref = admin.database().ref(`articles/${id}`);
+    const snapshot = await ref.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({
+        message: "Artículo no encontrado",
+        statusCode: 404,
+      });
+    }
+
+    // Eliminar nodo completo
+    await ref.remove();
+
+    return res.status(200).json({
+      message: "success",
+      statusCode: 200,
+      deleted_id: id,
+    });
+  } catch (error) {
+    console.error("Error al eliminar artículo:", error);
+    return res.status(500).json({
+      message: "error",
+      statusCode: 500,
+      error: error.message,
+    });
+  }
+});
