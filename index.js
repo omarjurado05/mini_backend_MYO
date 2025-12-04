@@ -34,7 +34,6 @@ exports.getArticles = functions.https.onRequest(async (req, res) => {
   }
 });
 
-
 /**
  * POST /createArticle
  * Crea un artículo nuevo con ID autogenerado (push)
@@ -56,6 +55,22 @@ exports.createArticle = functions.https.onRequest(async (req, res) => {
         message: "Campos incompletos",
         statusCode: 400,
         required_fields: ["name", "description", "brand", "codebar", "price"],
+      });
+    }
+
+    // 🔎 Verificar si ya existe un artículo con el mismo código de barras
+    const existingSnapshot = await admin
+        .database()
+        .ref("articles")
+        .orderByChild("codebar")
+        .equalTo(codebar)
+        .once("value");
+
+    if (existingSnapshot.exists()) {
+      return res.status(409).json({
+        message: "El artículo con este código de barras ya existe.",
+        statusCode: 409,
+        duplicated_codebar: codebar,
       });
     }
 
@@ -94,3 +109,66 @@ exports.createArticle = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+
+exports.updateArticle = functions.https.onRequest(async (req, res) => {
+  try {
+    // Permitir solo PUT
+    if (req.method !== "PUT") {
+      return res.status(405).json({
+        message: "Método no permitido",
+        statusCode: 405,
+      });
+    }
+
+    const {id, name, description, brand, codebar, price} = req.body;
+
+    // Validar que venga el ID
+    if (!id) {
+      return res.status(400).json({
+        message: "El campo 'id' es obligatorio para actualizar.",
+        statusCode: 400,
+      });
+    }
+
+    // Referencia al artículo
+    const articleRef = admin.database().ref(`articles/${id}`);
+    const snapshot = await articleRef.once("value");
+
+    // Verificar que exista el artículo
+    if (!snapshot.exists()) {
+      return res.status(404).json({
+        message: "El artículo no existe.",
+        statusCode: 404,
+        id: id,
+      });
+    }
+
+    const existingData = snapshot.val();
+    // Construir los cambios
+    const updatedData = {
+      name: name ?? existingData.name,
+      description: description ?? existingData.description,
+      brand: brand ?? existingData.brand,
+      codebar: codebar ?? existingData.codebar,
+      price: price ?? existingData.price,
+      id: existingData.id,
+    };
+
+    // Aplicar actualización
+    await articleRef.update(updatedData);
+
+    res.status(200).json({
+      message: "success",
+      statusCode: 200,
+      data: updatedData,
+    });
+  } catch (error) {
+    console.error("Error al actualizar artículo:", error);
+    res.status(500).json({
+      message: "error",
+      statusCode: 500,
+      error: error.message,
+    });
+  }
+});
+
