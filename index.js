@@ -219,3 +219,72 @@ exports.deleteArticle = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+exports.getArticleById = functions.https.onRequest(async (req, res) => {
+  try {
+    // Permitir solo GET
+    if (req.method !== "GET") {
+      return res.status(405).json({
+        message: "Método no permitido",
+        statusCode: 405,
+      });
+    }
+
+    const {id} = req.query;
+
+    // Validar ID
+    if (!id) {
+      return res.status(400).json({
+        message: "El parámetro 'id' es obligatorio",
+        statusCode: 400,
+      });
+    }
+
+    // Referencia al artículo
+    const ref = admin.database().ref(`articles/${id}`);
+    const snapshot = await ref.once("value");
+
+    // Verificar existencia
+    if (!snapshot.exists()) {
+      return res.status(404).json({
+        message: "Artículo no encontrado",
+        statusCode: 404,
+        id: id,
+      });
+    }
+
+    return res.status(200).json({
+      message: "success",
+      statusCode: 200,
+      data: snapshot.val(),
+    });
+  } catch (error) {
+    console.error("Error al obtener el artículo:", error);
+    return res.status(500).json({
+      message: "error",
+      statusCode: 500,
+      error: error.message,
+    });
+  }
+});
+
+exports.getServices = functions.https.onRequest(async (req, res) => {
+  try {
+    const dbRef = admin.database().ref("services");
+    const snapshot = await dbRef.once("value");
+
+    const services = snapshot.val() || [];
+
+    res.status(200).json({
+      message: "success",
+      statusCode: 200,
+      data: services,
+    });
+  } catch (error) {
+    console.error("Error al obtener servicios:", error);
+    res.status(500).json({
+      message: "error",
+      statusCode: 500,
+      error: error.message,
+    });
+  }
+});
